@@ -53,8 +53,7 @@ class Solver:
         self.connections_list = []
         self.param_dic = param_dic if param_dic is not None else {}
         self.pin_mapping = pin_mapping if pin_mapping is not None else {}
-        self.default_params = {"wl": None}
-        self.default_params.update(self.param_dic)
+        self.default_params = {"wl": None} | self.param_dic
         self.param_mapping = {} if param_mapping is None else param_mapping
         self.monitor_st = {}
         for pin1, pin2 in self.connections.items():
@@ -66,8 +65,7 @@ class Solver:
             raise ValueError("Same pin connected multiple time")
         self.free_pins = []
         for st in self.structures:
-            for pin in st.pin_list:
-                self.free_pins.append(pin)
+            self.free_pins.extend(iter(st.pin_list))
         for pin in self.connections_list:
             self.free_pins.remove(pin)
         self.name = name
@@ -103,10 +101,7 @@ class Solver:
             Bool: False is model has no pins, True otherwise
 
         """
-        if len(self.structures) > 0:
-            return False
-        else:
-            return True
+        return len(self.structures) <= 0
 
     def add_structure(self, structure: Structure) -> None:
         """Add a structure to the solver
@@ -117,13 +112,12 @@ class Solver:
         Returns:
             None
         """
-        if structure not in self.structures:
-            self.structures.append(structure)
-            for pin in structure.pin_list:
-                self.free_pins.append(pin)
-        else:
+        if structure in self.structures:
             raise ValueError("Structure already present")
 
+        self.structures.append(structure)
+        for pin in structure.pin_list:
+            self.free_pins.append(pin)
         inv_mapping = {
             old_name: new_name for new_name, old_name in structure.param_mapping.items()
         }
@@ -349,7 +343,9 @@ class Solver:
 
         for par, value in self.param_dic.items():
             self.param_dic[par] = (
-                np.array([value[0] for i in range(ns)]) if len(value) == 1 else value
+                np.array([value[0] for _ in range(ns)])
+                if len(value) == 1
+                else value
             )
         for st in self.structures:
             st.update_params(self.param_dic)
@@ -484,9 +480,10 @@ class Solver:
                 new_st = deepcopy(st)
             new_structures.append(new_st)
             copy_dic[st] = new_st
-        new_connections = {}
-        for (st1, pin1), (st2, pin2) in self.connections.items():
-            new_connections[(copy_dic[st1], pin1)] = (copy_dic[st2], pin2)
+        new_connections = {
+            (copy_dic[st1], pin1): (copy_dic[st2], pin2)
+            for (st1, pin1), (st2, pin2) in self.connections.items()
+        }
         sol = Solver(
             structures=new_structures,
             connections=new_connections,
@@ -516,7 +513,7 @@ class Solver:
             st.solver = st.solver.shallow_copy()
         old_conn = copy(self.connections)
         old_mapping = copy(self.pin_mapping)
-        if solvers == []:
+        if not solvers:
             return False
 
         for st in solvers:
@@ -540,10 +537,11 @@ class Solver:
                     self.connect(*tup1[0].solver.pin_mapping[tup1[1]], *tup2)
             elif tup2[0] in solvers:
                 self.connect(*tup1[0], *tup2[0].solver.pin_mapping[tup2[1]])
-        new_mapping = {}
-        for pin, tup in old_mapping.items():
-            if tup[0] in solvers:
-                new_mapping[pin] = tup[0].solver.pin_mapping[tup[1]]
+        new_mapping = {
+            pin: tup[0].solver.pin_mapping[tup[1]]
+            for pin, tup in old_mapping.items()
+            if tup[0] in solvers
+        }
         self.map_pins(new_mapping)
 
         for st in solvers:
@@ -585,7 +583,7 @@ class Solver:
             if max_depth is None or self.__class__.depth < max_depth:
                 print(f"{self.space}  {s}")
             if s.solver is not None:
-                self.__class__.space = self.__class__.space + "  "
+                self.__class__.space = f"{self.__class__.space}  "
                 self.__class__.depth += 1
                 s.solver._inspect(max_depth=max_depth)
                 self.__class__.space = self.__class__.space[:-2]
@@ -635,12 +633,12 @@ class Solver:
         # self.param_dic.update(update_dic)
         start_dic = {}
         for name, (func, args) in self.param_mapping.items():
-            new_args = {key: value for key, value in args.items()}
-            for key, value in new_args.items():
+            new_args = dict(args.items())
+            for key in new_args:
                 if key in update_dic:
                     new_args[key] = update_dic[key]
                 new_value = func(**new_args)
-            start_dic.update({name: new_value})
+            start_dic[name] = new_value
         self.param_dic.update(self.default_params)
         self.param_dic.update(update_dic)
         self.param_dic.update(start_dic)
@@ -661,7 +659,7 @@ class Solver:
             var_def = func.__defaults__
             if len(var_names) != len(var_def):
                 raise ValueError("Not all default provided")
-            default = {key: value for key, value in zip(var_names, var_def)}
+            default = dict(zip(var_names, var_def))
         up = {old_name: (func, default)}
         self.param_mapping.update(up)
         self.default_params.pop(old_name)
@@ -688,7 +686,7 @@ class Solver:
                     self.remove_structure(st)
                 else:
                     not_empty.append(st)
-        return len(not_empty) == 0
+        return not not_empty
 
     def split(self) -> List:
         """Identify sub-circuits inside the solver and splits them into multiple solvers
@@ -706,7 +704,7 @@ class Solver:
                         connected_sets.append(_set)
             for _set in connected_sets:
                 sets.remove(_set)
-            if len(connected_sets) == 0:
+            if not connected_sets:
                 sets.append(set([st] + st.connected_to))
             else:
                 sets.append(set().union(*connected_sets))

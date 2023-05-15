@@ -33,7 +33,6 @@ def test_doublesolver():
         lk.connect(r1.pin["b0"], r2.pin["a0"])
         lk.raise_pins()
     S.solve()
-    assert True
 
 
 if __name__ == "__main__":

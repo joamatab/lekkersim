@@ -80,15 +80,14 @@ class Model_from_NazcaCM(Model):
         # Checking for ampl model
         for name, pin in self.cell.pin.items():
             for mode, extra_in in self.allowed.items():
-                opt = list(pin.path_nb_iter(self.ampl_model, extra=extra_in))
-                if len(opt) != 0:
+                if opt := list(pin.path_nb_iter(self.ampl_model, extra=extra_in)):
                     opt_conn[(pin, mode)] = opt
-        if len(opt_conn) == 0:
+        if not opt_conn:
             return False
 
         n = 0
         self.CM = {}
-        pins = set([pin for pin, mode in opt_conn])
+        pins = {pin for pin, mode in opt_conn}
         for pi in pins:
             for mi in self.allowed:
                 pin_in = pi.basename if mi == "" else "_".join([pi.basename, mi])
@@ -153,21 +152,13 @@ class Model_from_NazcaCM(Model):
                 for target in set(opt.keys()).union(set(lss.keys())):
                     if (pin, mode) not in opt_conn:
                         opt_conn[(pin, mode)] = {}
-                    tup1 = (
-                        opt[target]
-                        if target in opt
-                        else (0.0, None, None, None, self.allowed[mode])
-                    )
-                    tup2 = (
-                        lss[target]
-                        if target in lss
-                        else (0.0, None, None, None, self.allowed[mode])
-                    )
+                    tup1 = opt.get(target, (0.0, None, None, None, self.allowed[mode]))
+                    tup2 = lss.get(target, (0.0, None, None, None, self.allowed[mode]))
                     opt_conn[(pin, mode)][target] = tup1 + tup2
         logger.debug(
             f"Model for {self.name}: using optical length model {self.optlength_model} and loss model {self.loss_model}"
         )
-        pins = set([pin for pin, mode in opt_conn])
+        pins = {pin for pin, mode in opt_conn}
         self.CM = {}
         for pi in pins:
             for mi in self.allowed:
@@ -386,11 +377,10 @@ class Model_from_NazcaCM(Model):
             optlength_model=optlength_model,
             allowed=allowed,
         )
-        if obj.is_empty():
-            logger.debug(f"Model of cell {obj.name} is empy")
-            return Solver(name=obj.name)
-        else:
+        if not obj.is_empty():
             return obj
+        logger.debug(f"Model of cell {obj.name} is empy")
+        return Solver(name=obj.name)
 
     def create_S(self) -> np.ndarray:
         """Creates the scattering matrix
@@ -611,11 +601,8 @@ def get_solver_from_nazca(
             if solver.prune():
                 models.pop(cnode)
 
-    if len(models) == 0:
+    if not models:
         nd.main_logger(f"Impossible to buld solver for cell {Cell.name}", "error")
         return None
 
-    if fullreturn:
-        return models
-    else:
-        return models[Cell.cnode]
+    return models if fullreturn else models[Cell.cnode]
