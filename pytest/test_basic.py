@@ -45,7 +45,7 @@ def test_composition():
         for i in range(10):
             wg = WG.put()
             lk.Pin(f"a{i}").put(wg.pin["a0"])
-            for j in range(i):
+            for _ in range(i):
                 wg = WG.put("a0", wg.pin["b0"])
             lk.Pin(f"b{i}").put(wg.pin["b0"])
 

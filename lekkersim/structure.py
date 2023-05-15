@@ -74,8 +74,7 @@ class Structure:
         Returns:
             dict: Dictionary of the pins, in the format {'pinname' : (self, pinname)}
         """
-        dic = {pin: (self, pin) for sl, pin in self.pin_list}
-        return dic
+        return {pin: (self, pin) for sl, pin in self.pin_list}
 
     @property
     def pin_count(self) -> int:
@@ -84,7 +83,7 @@ class Structure:
 
     def get_pin_basenames(self) -> str:
         """Return the set of the basename of the pins"""
-        return set([pin[1].split("_")[0] for pin in self.pin_list])
+        return {pin[1].split("_")[0] for pin in self.pin_list}
 
     def get_pin_modenames(self, target) -> List[str]:
         """Return list of mode names given a pin basename"""
@@ -177,10 +176,9 @@ class Structure:
         """
         if pin in self.pin_list:
             raise Exception("Pin already present, nothing is done")
-        else:
-            self.pin_list.append(pin)
-            self.pin_dic[pin] = self.N
-            self.N += 1
+        self.pin_list.append(pin)
+        self.pin_dic[pin] = self.N
+        self.N += 1
 
     def sel_input(self, pin_list: List[Tuple[Structure, str]]) -> None:
         """Divide pins to be connected providing inputs pins
@@ -304,11 +302,10 @@ class Structure:
             None
         """
         tup = self.conn_dict.get((self, pin))
-        if tup is not None:
-            if tup != (target, target_pin):
-                raise Exception("Pin already connected")
-        else:
+        if tup is None:
             self.conn_dict[(self, pin)] = (target, target_pin)
+        elif tup != (target, target_pin):
+            raise Exception("Pin already connected")
         if target not in self.connected_to:
             self.connected_to.append(target)
 
@@ -325,11 +322,10 @@ class Structure:
             self.conn_dict.pop((self, pin))
         else:
             raise Exception(f"Pin {pin} not in conn_dict")
-        if (self, pin) in self.pin_list:
-            self.pin_list.remove((self, pin))
-            self.pin_dic.pop((self, pin))
-        else:
+        if (self, pin) not in self.pin_list:
             raise Exception(f"Pin {pin} not in conn_dict")
+        self.pin_list.remove((self, pin))
+        self.pin_dic.pop((self, pin))
 
     def cut_connections(self, target: Structure) -> None:
         """Remove all connection to target structure. Pins in self are kept
@@ -381,12 +377,12 @@ class Structure:
         Returns:
             pin_list : list of tuple (structure (Structure), pin_name (str)) contaning the list of pins which connects to the target structure
         """
-        pin_list = []
         target_list = [st] + st.structures
-        for (loc_c, loc_name), (tar_c, tar_name) in self.conn_dict.items():
-            if tar_c in target_list:
-                pin_list.append((loc_c, loc_name))
-        return pin_list
+        return [
+            (loc_c, loc_name)
+            for (loc_c, loc_name), (tar_c, tar_name) in self.conn_dict.items()
+            if tar_c in target_list
+        ]
 
     def get_in_from(self, st: Structure) -> List[Tuple[Structure, str]]:
         """Find pins of self with are connected from a target structure
@@ -397,12 +393,12 @@ class Structure:
         Returns:
             pin_list : list of tuple (structure (Structure), pin_name (str)) contaning the list of pins which connects from the target structure
         """
-        pin_list = []
         loc_list = [self] + self.structures
-        for (source_c, source_name), (loc_c, loc_name) in st.conn_dict.items():
-            if loc_c in loc_list:
-                pin_list.append((loc_c, loc_name))
-        return pin_list
+        return [
+            (loc_c, loc_name)
+            for (source_c, source_name), (loc_c, loc_name) in st.conn_dict.items()
+            if loc_c in loc_list
+        ]
 
     def join(self, st: Structure) -> Structure:
         """Join two structures to create the one cotaining the merged structure
@@ -433,11 +429,7 @@ class Structure:
         for pin1 in loc_out:
             if pin1 != st.conn_dict[self.conn_dict[pin1]]:
                 raise Exception("Connectivity problem: Not Symmetric")
-        # Correct ordering of connection pins
-        tar_in = []
-        for pin in loc_out:
-            tar_in.append(self.conn_dict[pin])
-
+        tar_in = [self.conn_dict[pin] for pin in loc_out]
         # getting list of pins for local and target
         # print(loc_out)
         self.sel_output(loc_out)
@@ -495,8 +487,9 @@ class Structure:
             **self.conn_dict,
             **st.conn_dict,
         }.items():
-            if not (
-                (st_source in new_st.structures) and (st_target in new_st.structures)
+            if (
+                st_source not in new_st.structures
+                or st_target not in new_st.structures
             ):
                 new_st.conn_dict[(st_source, pin_source)] = (st_target, pin_target)
 
@@ -590,13 +583,12 @@ class Structure:
         #    for j,pin_namej in enumerate(pin_mapping):
         #        Smod[:,i,j]=self.Smatrix[:,self.pin_dic[pin_mapping[pin_name]],self.pin_dic[pin_mapping[pin_namej]]]
         pin_dic = {name: self.pin_dic[pin] for name, pin in pin_mapping.items()}
-        MOD = mod.SolvedModel(
+        return mod.SolvedModel(
             pin_dic=pin_dic,
             param_dic=self.param_dic,
             Smatrix=self.Smatrix,
             name=name,
         )
-        return MOD
 
     def raise_pins(self, pini: List[str] = None, pino: List[str] = None):
         """Raises  some pins of the structure into the solver

@@ -100,10 +100,7 @@ class Model:
             Bool: False is model has no pins, True otherwise
 
         """
-        if len(self.pin_dic) > 0:
-            return False
-        else:
-            return True
+        return len(self.pin_dic) <= 0
 
     def _expand_S(self) -> np.ndarray:
         self.N = self.N // self.np
@@ -174,8 +171,7 @@ class Model:
         I, J = np.meshgrid(indsort, indsort, indexing="ij")
         S = S[0, I, J] if len(np.shape(S)) == 3 else S[I, J]
         S = func(S) if func is not None else S
-        data = pd.DataFrame(data=S, index=a, columns=a)
-        return data
+        return pd.DataFrame(data=S, index=a, columns=a)
 
     def get_T(self, pin1: str, pin2: str) -> float:
         """Function for returning the energy transmission between two ports
@@ -283,13 +279,10 @@ class Model:
         for pin, i in self.pin_dic.items():
             u[i] = input_dic[pin]
         d = np.dot(self.S[0, :, :], u)
-        out_dic = {}
-        for pin, i in self.pin_dic.items():
-            if power:
-                out_dic[pin] = np.abs(d[i]) ** 2.0
-            else:
-                out_dic[pin] = d[i]
-        return out_dic
+        return {
+            pin: np.abs(d[i]) ** 2.0 if power else d[i]
+            for pin, i in self.pin_dic.items()
+        }
 
     def put(
         self, source_pin: str = None, target_pin=None, param_mapping={}
@@ -330,15 +323,14 @@ class Model:
         logger.debug(f"Solving Model {self}")
         self.param_dic.update(self.default_params)
         ns = 1
-        for name in kargs:
+        for name, value in kargs.items():
             kargs[name] = np.reshape(kargs[name], -1)
-            if len(kargs[name]) == 1:
+            if len(value) == 1:
                 continue
             if ns == 1:
                 ns = len(kargs[name])
-            else:
-                if ns != len(kargs[name]):
-                    raise Exception("Different lengths between parameter arrays")
+            elif ns != len(kargs[name]):
+                raise Exception("Different lengths between parameter arrays")
         up_dic = {}
         S_list = []
         for i in range(ns):
@@ -417,7 +409,7 @@ class Model:
 
     def get_pin_basenames(self) -> List[str]:
         """Returns a list of the basenames of the pins"""
-        pin_basenamens = set([pinname.split("_")[0] for pinname in self.pin_dic])
+        pin_basenamens = {pinname.split("_")[0] for pinname in self.pin_dic}
         return list(pin_basenamens)
 
     def __str__(self):
@@ -497,7 +489,7 @@ class SolvedModel(Model):
         else:
             for name, values in self.solved_params.items():
                 if len(values) == 1:
-                    params[name] = np.array([values[0] for i in range(self.ns)])
+                    params[name] = np.array([values[0] for _ in range(self.ns)])
                 elif len(values) == self.ns:
                     params[name] = values
                 else:
@@ -508,8 +500,7 @@ class SolvedModel(Model):
         )
         params["Phase"] = np.angle(self.S[:, self.pin_dic[pin1], self.pin_dic[pin2]])
         params["Amplitude"] = self.S[:, self.pin_dic[pin1], self.pin_dic[pin2]]
-        pan = pd.DataFrame.from_dict(params)
-        return pan
+        return pd.DataFrame.from_dict(params)
 
     def get_full_output(
         self, input_dic: Dict[str, float], power: bool = True
@@ -532,7 +523,7 @@ class SolvedModel(Model):
         else:
             for name, values in self.solved_params.items():
                 if len(values) == 1:
-                    params[name] = np.array([values[0] for i in range(self.ns)])
+                    params[name] = np.array([values[0] for _ in range(self.ns)])
                 elif len(values) == self.ns:
                     params[name] = values
                 else:
@@ -553,8 +544,7 @@ class SolvedModel(Model):
 
         for pin, i in self.pin_dic.items():
             params[pin] = np.abs(output[:, i]) ** 2.0 if power else output[:, i]
-        pan = pd.DataFrame.from_dict(params)
-        return pan
+        return pd.DataFrame.from_dict(params)
 
     def get_full_data(self) -> pd.DataFrame:
         """Returns the scattering matrix for all the solved parametes in form of padas DataFrame"""
@@ -564,7 +554,7 @@ class SolvedModel(Model):
         else:
             for name, values in self.solved_params.items():
                 if len(values) == 1:
-                    params[name] = np.array([values[0] for i in range(self.ns)])
+                    params[name] = np.array([values[0] for _ in range(self.ns)])
                 elif len(values) == self.ns:
                     params[name] = values
                 else:
@@ -710,7 +700,7 @@ class SolvedModel(Model):
         else:
             for name, values in self.solved_params.items():
                 if len(values) == 1:
-                    params[name] = np.array([values[0] for i in range(self.ns)])
+                    params[name] = np.array([values[0] for _ in range(self.ns)])
                 elif len(values) == self.ns:
                     params[name] = values
                 else:
@@ -721,10 +711,7 @@ class SolvedModel(Model):
             params[f"{pin}_i"] = np.abs(u[:, i]) ** 2.0 if power else u[:, i]
             params[f"{pin}_o"] = np.abs(d[:, i]) ** 2.0 if power else d[:, i]
 
-        pan = pd.DataFrame.from_dict(params)
-        return pan
-
-        return u, d
+        return pd.DataFrame.from_dict(params)
 
 
 class Waveguide(Model):
@@ -999,14 +986,13 @@ class PolRot(Model):
         """
         if self.fixed:
             return self.S
-        else:
-            angle = self.param_dic[self.angle_name]
-            c = np.cos(np.pi * angle)
-            s = np.sin(np.pi * angle)
-            S = np.zeros((self.N, self.N), complex)
-            S[:2, 2:] = np.array([[c, s], [-s, c]])
-            S[2:, :2] = np.array([[c, -s], [s, c]])
-            return S
+        angle = self.param_dic[self.angle_name]
+        c = np.cos(np.pi * angle)
+        s = np.sin(np.pi * angle)
+        S = np.zeros((self.N, self.N), complex)
+        S[:2, 2:] = np.array([[c, s], [-s, c]])
+        S[2:, :2] = np.array([[c, -s], [s, c]])
+        return S
 
 
 class Attenuator(Model):
@@ -1104,8 +1090,9 @@ class FPR_NxM(Model):
         """
         self.param_dic = {}
         self.default_params = deepcopy(self.param_dic)
-        self.pin_dic = {f"a{i}": i for i in range(N)}
-        self.pin_dic.update({f"b{i}": N + i for i in range(M)})
+        self.pin_dic = {f"a{i}": i for i in range(N)} | {
+            f"b{i}": N + i for i in range(M)
+        }
         Sint = np.zeros((N, M), complex)
         for i in range(N):
             for j in range(M):
@@ -1310,7 +1297,7 @@ class FPR(Model):
         self.R = R
         d1 = {f"a{i:03}": i for i in range(n)}
         d2 = {f"b{i:03}": n + i for i in range(m)}
-        dic = {**d1, **d2}
+        dic = d1 | d2
         super().__init__(pin_dic=dic)
         t1 = self.d1 / Ri * np.array(line(n))
         t2 = self.d2 / R * np.array(line(m))
@@ -1375,7 +1362,7 @@ class FPRGaussian(Model):
         self.w2 = w2
         d1 = {f"a{i:03}": i for i in range(n)}
         d2 = {f"b{i:03}": n + i for i in range(m)}
-        dic = {**d1, **d2}
+        dic = d1 | d2
         super().__init__(pin_dic=dic)
 
         self.t1 = self.d1 / Ri * line(n)
@@ -1395,7 +1382,7 @@ class FPRGaussian(Model):
 
         """
         lam = self.param_dic["wl"]
-        if type(self.n_slab) == float or type(self.n_slab) == int:
+        if type(self.n_slab) in [float, int]:
             n_slab = self.n_slab
         elif callable(self.n_slab):
             n_slab = self.n_slab(lam)
@@ -1484,7 +1471,7 @@ class CWA(Model):
         self.L = L
         d1 = {f"a{i}": i for i in range(N)}
         d2 = {f"b{i}": N + i for i in range(N)}
-        dic = {**d1, **d2}
+        dic = d1 | d2
         super().__init__(pin_dic=dic)
         i, j = list(range(N)), list(range(N))
         I, J = np.meshgrid(i, j, indexing="ij")

@@ -77,12 +77,12 @@ class S_matrix:
         Args:
             i,j (int) : number of ports to print. Default is None (all matrix is printed)
         """
-        if i == None:
+        if i is None:
             S = np.vstack(
                 [np.hstack([self.S11, self.S12]), np.hstack([self.S21, self.S22])]
             )
         else:
-            j = i if j == None else j
+            j = i if j is None else j
             S = np.vstack(
                 [
                     np.hstack([self.S11[i, j], self.S12[i, j]]),

@@ -170,6 +170,4 @@ class GaussianBeam:
             -1j * (k_z * _z + k_x * _x * _x / (2 * self.curvature(_z)) - self.gouy(_z))
         )
 
-        _field = _amplitude * _phase
-
-        return _field
+        return _amplitude * _phase

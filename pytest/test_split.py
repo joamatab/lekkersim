@@ -9,21 +9,18 @@ import matplotlib.pyplot as plt
 def test_split_simple():
 
     with lk.Solver() as S:
-        g1 = []
-        g1.append(lk.Waveguide(1.0).put())
+        g1 = [lk.Waveguide(1.0).put()]
         g1.append(lk.Waveguide(1.0).put("a0", g1[-1].pin["b0"]))
         g1.append(lk.Waveguide(1.0).put("a0", g1[-1].pin["b0"]))
         lk.Pin("a0").put(g1[0].pin["a0"])
         lk.Pin("b0").put(g1[-1].pin["b0"])
 
-        g2 = []
-        g2.append(lk.Waveguide(1.0).put())
+        g2 = [lk.Waveguide(1.0).put()]
         g2.append(lk.Waveguide(1.0).put("a0", g2[-1].pin["b0"]))
         lk.Pin("a1").put(g2[0].pin["a0"])
         lk.Pin("b2").put(g2[-1].pin["b0"])
 
-        g3 = []
-        g3.append(lk.Waveguide(1.0).put())
+        g3 = [lk.Waveguide(1.0).put()]
         lk.Pin("a1").put(g3[0].pin["a0"])
         lk.Pin("b2").put(g3[-1].pin["b0"])
 

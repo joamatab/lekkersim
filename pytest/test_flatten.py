@@ -36,13 +36,13 @@ def test_basic():
 def test_multiple_placing():
     with lk.Solver() as S1:
         WG = lk.Waveguide(10.0)
-        wgs = [WG.put() for i in range(4)]
+        wgs = [WG.put() for _ in range(4)]
         for wg1, wg2 in zip(wgs[:-1], wgs[1:]):
             lk.connect(wg1.pin["b0"], wg2.pin["a0"])
         lk.raise_pins()
 
     with lk.Solver() as S2:
-        wgs = [S1.put() for i in range(4)]
+        wgs = [S1.put() for _ in range(4)]
         for wg1, wg2 in zip(wgs[:-1], wgs[1:]):
             lk.connect(wg1.pin["b0"], wg2.pin["a0"])
         lk.raise_pins()
